@@ -67,6 +67,8 @@ var temp = 0;
 
 //Variaveis para o desenho da reta
 var reta_x1, reta_y1, reta_x2, reta_y2;
+//Variáveis auxiliares reta DDA
+var pontosDDA = [];
 
 //variaveis auxiliares reta Bresenham
 var pontosBre = [];
@@ -124,7 +126,24 @@ function mouseMove(event) {
 	canvas_x = event.layerX-4;
    canvas_y = event.layerY-4;
 	
-	switch(estado){
+   switch (estado) {
+
+       // reta DDA temporaria
+       case 21: {
+           document.getElementById("temp").innerHTML = "x = " + canvas_x + "<br>y = " + canvas_y;
+           //apagar reta temporaria
+           if (desenha) {
+               temp = 1;
+               reta_dda_desenha(reta_x1, reta_y1, reta_x2, reta_y2);
+           }
+
+           //desenhar a nova reta temporaria
+           temp = 0;
+           desenha = true;
+           reta_x2 = canvas_x, reta_y2 = canvas_y;
+           reta_dda_desenha(reta_x1, reta_y1, reta_x2, reta_y2);
+           break;
+       }
 		// reta bresenham temporaria
 		case 31:{
 			document.getElementById("temp").innerHTML = "x = "+ canvas_x + "<br>y = " + canvas_y;
@@ -304,12 +323,13 @@ function doMouseDown(event) {
         reta_x1 = canvas_x;
         reta_y1 = canvas_y;
 
-        x=document.getElementById("description");
-        x.innerHTML="Descrição do método DDA"; 
-        x.innerHTML += "<br>Ponto x1=" + reta_x1;
-        x.innerHTML += "<br>Ponto y1=" + reta_y1;
+        pontosDDA[pontosDDA.length] = { x: reta_x1, y: reta_y1 };
+
+        document.getElementById("description").innerHTML += "<br>Ponto DDA" + (pontosDDA.length) + " ( " + reta_x1 + "; " + reta_y1 + ")";
 
         estado = 21;
+        temp = 0;
+        desenha = false;
         break;
 
     case 21:
@@ -317,15 +337,19 @@ function doMouseDown(event) {
         reta_x2 = canvas_x;
         reta_y2 = canvas_y;
 
-        x.innerHTML += "<br>Ponto x2=" + reta_x2;
-        x.innerHTML += "<br>Ponto y2=" + reta_y2;
+        pontosDDA[pontosDDA.length] = { x: reta_x2, y: reta_y2 };
+
+        document.getElementById("description").innerHTML += "<br>Ponto DDA" + (pontosDDA.length) + " ( " + reta_x2 + "; " + reta_y2 + ") <br>";
 
         //Desenha
-        reta_dda_desenha(); //coordenadas são globais
+        temp = -1;
+        reta_dda_desenha(reta_x1, reta_y1, reta_x2, reta_y2); //coordenadas são globais
+        imprimePontosDDA("DDA",pontosDDA)      
         
         //Regressa ao estado
         estado = 20;
-        break;        
+        temp = 0;
+        break;
 
     /////////////////////////////////
     //Desenho da reta pelo Bresenham
@@ -348,7 +372,7 @@ function doMouseDown(event) {
         //Ocorreu a marcação do segundo ponto 
         reta_x2 = canvas_x, reta_y2 = canvas_y;
         
-        pontosBre[pontosBre.length] = {x:reta_x2, y:reta_y2};
+        pontosBre[pontosBre.length] = {x: reta_x2, y: reta_y2};
         
         document.getElementById("description").innerHTML += "<br>Ponto B" + (pontosBre.length) + " ( " + reta_x2 + "; " + reta_y2 + ") <br>";
         
@@ -561,7 +585,10 @@ function doMouseDown(event) {
         x=document.getElementById("description");
         x.innerHTML += "<br>Ponto x=" + px;
         x.innerHTML += "<br>Ponto y=" + py;
-
+        var r = ctx.getImageData(px, py, 1, 1).data[0]; //red
+        var g = ctx.getImageData(px, py, 1, 1).data[1]; //green
+        var b = ctx.getImageData(px, py, 1, 1).data[2]; //blue
+        x.innerHTML += "<br>R=" + r + ", G=" + g + ", B=" + b; //vermelho aparece correto (255,0,0) mas o branco (0,0,0) não devia aparecer (255,255,255)?
         //germen
         germen4(px,py);
 
@@ -580,7 +607,10 @@ function doMouseDown(event) {
         x=document.getElementById("description");
         x.innerHTML += "<br>Ponto x=" + px;
         x.innerHTML += "<br>Ponto y=" + py;
-
+        var r = ctx.getImageData(px, py, 1, 1).data[0]; //red
+        var g = ctx.getImageData(px, py, 1, 1).data[1]; //green
+        var b = ctx.getImageData(px, py, 1, 1).data[2]; //blue
+        x.innerHTML += "<br>R=" + r + ", G=" + g + ", B=" + b; //vermelho aparece correto (255,0,0) mas o branco (0,0,0) não devia aparecer (255,255,255)?
         //germen
         germen8(px,py);
 
@@ -707,6 +737,7 @@ function menu_limpar()
 	estado = 0;
 	desenha = true;
 	temp = 0;
+	pontosDDA = [];
 	pontosBre = [];
 	pontosCircBre = [];
 	pontosEtrig = [];
@@ -781,7 +812,7 @@ function reta_declive_vertical()
 
 /*
  ----------------
- Reta: método DDA
+ Reta: Método DDA
  ----------------
 */
 function menu_reta_dda()
@@ -792,618 +823,672 @@ function menu_reta_dda()
     estado = 20; 
 }  
 
-function reta_dda_desenha()
-{
+function reta_dda_desenha(x1, y1, x2, y2) {
+    var x, y;
+    confDesenho();
+        if (Math.abs(y2 - y1) <= Math.abs(x2 - x1))
+    {
+        if (x1 > x2)
+        {
+            var t = x1;
+            x1 = x2;
+            x2 = t;
 
-    //Reta via javascript 
-    //ctx.moveTo(reta_x1,reta_y1);
-    //ctx.lineTo(reta_x2,reta_y2);
-    //ctx.fillStyle = "#FF0000";
-    //ctx.stroke();
+            var u = y1;
+            y1 = y2;
+            y2 = u;
+        }
+        var m = (y2 - y1) / (x2 - x1);
+        y = y1; // initial value
+        for (x = x1; x <= x2; x++, y += m)
+            pintaPixel(x, Math.round(y));
+    }
+    else // m > 1
+    {
+        if (y1 > y2)
+        {
+            var t = x1;
+            x1 = x2;
+            x2 = t;
 
-    //Reta via algoritmo "Método do Declive"
+            var u = y1;
+            y1 = y2;
+            y2 = u;
+        }
+        var m = (y2 - y1) / (x2 - x1);
+        x = x1; // initial value
+        for (y = y1; y <= y2; y++, x += 1/m)
+            pintaPixel(Math.round(x), y);
+    }
 
+        console.log("Fim do desenho da reta pelo metodo DDA.");
+    }
+
+
+
+    /*
+       -------------------------
+       Reta: Método de Bresenham
+       -------------------------
+    */
+    function menu_reta_bresenham() {
+        document.getElementById("description").innerHTML = "Descrição do método Bresenham<br>";
+        //Events
+        estado = 30;
+    }
+
+    // NOVA reta_bresenham_desenha()
+    function reta_bresenham_desenha(A, B) {
+
+        var x1 = A.x, y1 = A.y, x2 = B.x, y2 = B.y;
+
+        var dy = Math.abs(y2 - y1);
+        var dx = Math.abs(x2 - x1);
+
+        var ix = (x1 < x2 ? 1 : -1); // direcao incremento
+        var iy = (y1 < y2 ? 1 : -1);
+
+        var dy2 = (dy << 1); // slope scaling factors to avoid floating point
+        var dx2 = (dx << 1);
+
+        var d = 0;  // delta do valor exato e do valor arredondado da variavel dependente
+
+        confDesenho();
+
+        if (dy <= dx) {
+            for (; ;) {
+                pintaPixel(x1, y1);
+
+                if (x1 == x2)
+                    break;
+
+                x1 += ix;
+                d += dy2;
+                if (d > dx) {
+                    y1 += iy;
+                    d -= dx2;
+                }
+            }
+        }
+        if (dy > dx) {
+            for (; ;) {
+                pintaPixel(x1, y1);
+
+                if (y1 == y2)
+                    break;
+
+                y1 += iy;
+                d += dx2;
+                if (d > dy) {
+                    x1 += ix;
+                    d -= dy2;
+                }
+            }
+        }
+        //console.log("Fim do desenho da reta pelo método Bresenham.");
+    }
+
+
+    /////////////////////
+    // Circunferências //
+    /////////////////////
+
+    /*
+     -------------------------------------
+     Circunferência pelo método polinomial
+     -------------------------------------
+    */
+
+
+    function menu_circ_polinomial() {
+        x = document.getElementById("description");
+        x.innerHTML = "Circunferência: método polinomial";
+        //Events
+        estado = 40;
+    }
+
+    function circ_polinomial_desenha() {
+
+    }
+
+
+    /*
+     ------------------------------------------
+     Circunferência pelo método trigonométrico.
+     ------------------------------------------
+    */
+
+    function menu_circ_trig() {
+        x = document.getElementById("description");
+        x.innerHTML = "Circunferência: método trigonométrico";
+        //Events
+        estado = 50
+    }
+
+    function circ_trig_desenha() {
+        alert("To do!");
+    }
+
+
+    /*
+     ------------------------------------------
+     Circunferência pelo método de Bresenham.
+     ------------------------------------------
+    */
+
+    function menu_circ_bresenham() {
+        document.getElementById("description").innerHTML = "Circunferência: Método de Bresenham<br>";
+        //Events
+        estado = 60;
+    }
+
+    function circ_bresenham_desenha() {
+
+        var r = Math.floor(Math.sqrt(Math.pow(centro_x - pcirc_x, 2) + Math.pow(centro_y - pcirc_y, 2)));
+
+        var x = 0;
+        var y = r;
+        var d = (3 - 2 * r);
+
+        confDesenho();
+
+        while (x <= y) {
+            if (d < 0)
+                d = d + 4 * x + 6;
+            else {
+                d = d + 4 * (x - y) + 10;
+                y = y - 1;
+            }
+
+            pintaPixel(x + centro_x, y + centro_y);
+            pintaPixel(-x + centro_x, -y + centro_y);
+            pintaPixel(y + centro_x, x + centro_y);
+            pintaPixel(-y + centro_x, -x + centro_y);
+            pintaPixel(-y + centro_x, x + centro_y);
+            pintaPixel(y + centro_x, -x + centro_y);
+            pintaPixel(-x + centro_x, y + centro_y);
+            pintaPixel(x + centro_x, -y + centro_y);
+
+            x++;
+        }
+    }
+
+
+
+    ///////////////////////
+    //      Elipses      //
+    ///////////////////////
+
+
+    /* 
+       -----------------------------
+       Elipse pelo método polinomial
+       -----------------------------
+    */
+    function menu_elipse_polinomial() {
+        //Variaveis para desenho da elipse: 3 pontos
+        //var centro1_x1, centro2_y1, pcirc_x2, pcirc_y2;
+
+        x = document.getElementById("description");
+        x.innerHTML = "Elipse: Método polinomial";
+        //Events
+        estado = 70;
+    }
+
+    function elipse_polinomial_desenha() {
+        alert("To do !");
+    }
+
+
+
+    /*
+       ----------------------------------
+       Elipse pelo método trigonométrico
+       ----------------------------------
+    */
+    function menu_elipse_trig() {
+        document.getElementById("description").innerHTML = "Elipse: Método Trigonométrico<br>";
+        //Events
+        estado = 80;
+    }
+
+    function elipse_trig_desenha() {
+
+        var x1 = pelip1_x;
+        var y1 = pelip1_y;
+        var x2 = pelip2_x;
+        var y2 = pelip2_y;
+
+        var a = Math.abs(x2 - x1);
+        var b = Math.abs(y2 - y1);
+        var ang = 0;
+        var angFim = 11 / 7; // Pi/2
+
+        confDesenho();
+        while (ang <= angFim + 0.005) {
+            var x = Math.round(a * Math.cos(ang));
+            var y = Math.round(b * Math.sin(ang));
+
+            pintaPixel(x + x1, y + y2);
+            pintaPixel(-x + x1, y + y2);
+            pintaPixel(x + x1, -y + y2);
+            pintaPixel(-x + x1, -y + y2);
+
+            ang += 0.005;
+        }
+    }
+
+
+    ///////////////////////
+    // Preenchimento
+    ///////////////////////
+
+
+    //Controlo da recursividade.
+    var rec, maxrec = 100000;
+    /* 
+       ------------------------
+       Método Germen 4 (raster)
+       ------------------------
+    */
+
+    function menu_germen4() {
+        x = document.getElementById("description");
+        x.innerHTML = "Germen 4 (raster)";
+        //Events
+        estado = 90;
+    }
+
+    function germen4(x, y) {
+        //Obtem a cor do pixel selecionado
+        var c = document.getElementById("acg_canvas");
+        var ctx = c.getContext("2d");
+
+        canvas_width = c.width;
+        canvas_height = c.height;
+        ctx.fillStyle = "red";
+        rec = 0;
+        germen4_doit(x, y)
+        //    x.innerHTML += "<br>R=" + p[0] + ", G=" + p[1] + ",B=" + p[2];
+    }
+
+    function germen4_doit(x, y) {
+        rec++;
+        if (rec > maxrec) //mudei maxrec
+            return;
+        var r = ctx.getImageData(x, y, 1, 1).data[0]; //red
+        var g = ctx.getImageData(x, y, 1, 1).data[1]; //green
+        var b = ctx.getImageData(x, y, 1, 1).data[2]; //blue
+
+        if (x < 0 || x >= canvas_width || y < 0 || y >= canvas_height)
+            return;
+        if (r===0 && g===0 && b===0) { //if white
+            pintaPixel(x, y); //pinta
+            germen4_doit(x + 1, y);
+            germen4_doit(x - 1, y);
+            germen4_doit(x, y + 1);
+            germen4_doit(x, y - 1);
+        }
+    }
     
 
-   console.log("Fim do desenho da reta pelo metodo DDA.");
-}
-
-
-
-/*
-   -------------------------
-   Reta: Método de Bresenham
-   -------------------------
-*/
-function menu_reta_bresenham(){
-    document.getElementById("description").innerHTML="Descrição do método Bresenham<br>"; 
-    //Events
-    estado = 30;
-}  
-
-// NOVA reta_bresenham_desenha()
-function reta_bresenham_desenha(A, B){
-	
-	var x1 = A.x, y1 = A.y, x2 = B.x, y2 = B.y;
-	
-	var dy = Math.abs(y2 - y1);
-	var dx = Math.abs(x2 - x1);
-	
-	var ix = (x1 < x2 ? 1 : -1); // direcao incremento
-	var iy = (y1 < y2 ? 1 : -1);
-
-	var dy2 = (dy << 1); // slope scaling factors to avoid floating point
-	var dx2 = (dx << 1);
-	
-	var d = 0;  // delta do valor exato e do valor arredondado da variavel dependente
-	
-	confDesenho();
-	
-	if (dy <= dx){
-		for (;;) {
-			pintaPixel(x1, y1);
-			
-			if (x1 == x2)
-				break;
-			
-			x1 += ix;
-			d += dy2;
-			if (d > dx) {
-				y1 += iy;
-				d -= dx2;
-			}
-		}
-	}
-	if(dy > dx){
-		for (;;) {
-			pintaPixel(x1, y1);
-			
-			if (y1 == y2)
-				break;
-			
-			y1 += iy;
-			d += dx2;
-			if (d > dy) {
-				x1 += ix;
-				d -= dy2;
-			}
-		}
-	}
-	//console.log("Fim do desenho da reta pelo método Bresenham.");
-}
-
-
-/////////////////////
-// Circunferências //
-/////////////////////
-
-/*
- -------------------------------------
- Circunferência pelo método polinomial
- -------------------------------------
-*/
-
-
-function menu_circ_polinomial()
-{
-    x=document.getElementById("description");
-    x.innerHTML="Circunferência: método polinomial"; 
-    //Events
-    estado = 40;
-}  
-
-function circ_polinomial_desenha()
-{
-
-}
-
-
-/*
- ------------------------------------------
- Circunferência pelo método trigonométrico.
- ------------------------------------------
-*/
-
-function menu_circ_trig()
-{
-    x=document.getElementById("description");
-    x.innerHTML="Circunferência: método trigonométrico"; 
-    //Events
-    estado = 50 
-}
-
-function circ_trig_desenha()
-{
-	alert("To do!");  
-}
-
-
-/*
- ------------------------------------------
- Circunferência pelo método de Bresenham.
- ------------------------------------------
-*/
-
-function menu_circ_bresenham()
-{
-    document.getElementById("description").innerHTML = "Circunferência: Método de Bresenham<br>"; 
-    //Events
-    estado = 60; 
-}  
-
-function circ_bresenham_desenha(){
-
-	var r = Math.floor(Math.sqrt( Math.pow( centro_x - pcirc_x, 2) + Math.pow( centro_y - pcirc_y, 2)  ));
-	
-	var x = 0;
-	var y = r;
-	var d = (3-2*r);
-	
-	confDesenho();
-	
-	while( x <= y ){
-		if(d<0)
-			d = d + 4*x + 6;
-		else{
-			d = d + 4*(x-y) + 10;
-			y = y-1;
-		}
-		
-		pintaPixel( x + centro_x, y + centro_y);
-		pintaPixel( -x + centro_x, -y + centro_y);
-		pintaPixel( y + centro_x, x + centro_y);
-		pintaPixel( -y + centro_x, -x + centro_y);
-		pintaPixel( -y + centro_x, x + centro_y);
-		pintaPixel( y + centro_x, -x + centro_y);
-		pintaPixel( -x + centro_x, y + centro_y);
-		pintaPixel( x + centro_x, -y + centro_y);
-		
-		x++;
-	}
-}
-
-
-
-///////////////////////
-//      Elipses      //
-///////////////////////
-
-
-/* 
-   -----------------------------
-   Elipse pelo método polinomial
-   -----------------------------
-*/
-function menu_elipse_polinomial()
-{
-    //Variaveis para desenho da elipse: 3 pontos
-    //var centro1_x1, centro2_y1, pcirc_x2, pcirc_y2;
-
-    x=document.getElementById("description");
-    x.innerHTML="Elipse: Método polinomial"; 
-    //Events
-    estado = 70;
-}  
-
-function elipse_polinomial_desenha()
-{
-    alert("To do !");
-}
-
-
-
-/*
-   ----------------------------------
-   Elipse pelo método trigonométrico
-   ----------------------------------
-*/
-function menu_elipse_trig()
-{
-    document.getElementById("description").innerHTML="Elipse: Método Trigonométrico<br>"; 
-    //Events
-    estado = 80;
-}  
-
-function elipse_trig_desenha(){
-	
-	var x1 = pelip1_x;
-	var y1 = pelip1_y;
-	var x2 = pelip2_x;
-	var y2 = pelip2_y;
-	
-	var a = Math.abs(x2-x1);
-	var b = Math.abs(y2-y1);
-	var ang=0;
-	var angFim = 11/7; // Pi/2
-    
-	confDesenho();
-	while(ang <= angFim+0.005){
-		var x = Math.round(a*Math.cos(ang));
-		var y = Math.round(b*Math.sin(ang));
-		
-		pintaPixel( x + x1, y + y2);
-		pintaPixel( -x +x1, y + y2);
-		pintaPixel( x + x1, -y +y2);
-		pintaPixel( -x +x1, -y +y2);
-		
-		ang+=0.005;
-	}
-}
-
-
-///////////////////////
-// Preenchimento
-///////////////////////
-
-
-//Controlo da recursividade.
-var rec, maxrec=600;
-/* 
-   ------------------------
-   Método Germen 4 (raster)
-   ------------------------
-*/
-
-function menu_germen4()
-{
-    x=document.getElementById("description");
-    x.innerHTML="Germen 4 (raster)"; 
-    //Events
-    estado = 90;
-}
-
-function germen4()
-{
-    //Obtem a cor do pixel selecionado
-    var c = document.getElementById("acg_canvas");
-    var ctx = c.getContext("2d");
-
-    canvas_width  = c.width;
-    canvas_height = c.height;
-
-    ctx.fillStyle = "#FF0000";
-
-    rec = 0;
-
-    germen4_doit(px, py, ctx)
-    //    x.innerHTML += "<br>R=" + p[0] + ", G=" + p[1] + ",B=" + p[2];
-}
-
-function germen4_doit(x, y, ctx, ct)
-{
-    
-}
-
-
-
-/* 
-   ------------------------
-   Método Germen 8 (raster)
-   ------------------------
-*/
-function menu_germen8()
-{
-    x=document.getElementById("description");
-    x.innerHTML="Germen 8 (raster)"; 
-    //Events
-    estado = 100;
-}
-
-
-function germen8()
-{
-    //Obtem a cor do pixel selecionado
-    var c = document.getElementById("acg_canvas");
-    var ctx = c.getContext("2d");
-
-    canvas_width  = c.width;
-    canvas_height = c.height;
-
-    ctx.fillStyle = "#FF0000";
-
-    rec = 0;
-
-    germen8_doit(px, py, ctx);
-    //    x.innerHTML += "<br>R=" + p[0] + ", G=" + p[1] + ",B=" + p[2];
-}
-
-
-
-function germen8_doit(x, y, ctx, ct)
-{
-    
-}
-
-
-
-/* 
-   --------------------------------------
-   Desenho de um polígono (vectorial)
-   --------------------------------------
-*/
-function menu_desenha_poligono()
-{
-    x=document.getElementById("description");
-    x.innerHTML="Desenho de um polígono (vectorial)"; 
-
-    //Prepara pontos
-    ptspol = []; //Lista vazia
-
-    //Events
-    estado = 110;
-}
-
-
-
-/* 
-   --------------------------------------
-   Método Linha de Varrimento (vectorial)
-   --------------------------------------
-*/
-
-function menu_varrimento()
-{
-    x=document.getElementById("description");
-    x.innerHTML="Varrimento (vectorial)"; 
-
-    //Events
-    estado = 120;
-
-    //Temporário: para debug apenas
-    //ptspol = [ {x:100,y:100}, {x:150,y:100}, {x:100,y:150}, {x:100,y:100} ];
-    //desenha_poligono();
-}
-
-
-function varrimento()
-{
-    //Varre e regressa logo ao estado base.
-    estado = 0;
-
-    //Pixel selecionado potencialmente dentro de um ou mais polígonos.
-    px = canvas_x;
-    py = canvas_y;
-
-    //Verificar se o polígono foi selecionado:
-    //--> passar agora porque só há um polígono.
-
-    //Obtem ymin e ymax.
-    var ymin, ymax;
-
-    //Assume-se um polígono fechado
-    npts = ptspol.length;
-
-    ymin = ptspol[0].y;
-    ymax = ptspol[0].y;
-
-}
-
-///////////////
-//  Recorte  //
-///////////////
-
-/*
-Recorte de retas pelo método de Liang-Barsky
-*/
-function menu_recorte_LiangBarsky(){
-	document.getElementById("description").innerHTML="Recorte: Método de Liang-Barsky"; 
-	
-	//Events
-	if(pontosBre.length>1){ //existe pelo menos uma reta desenhada
-		document.getElementById("temp").innerHTML = "Selecione o primeiro ponto da janela de recorte<br>" + document.getElementById("temp").innerHTML;
-		segsReta = pontosBre;
-		estado=135;
-	}
-	else{
-		estado=130;
-		document.getElementById("temp").innerHTML = "Introduzir Segmentos de Reta<br><br>Selecione o primeiro ponto<br>" + document.getElementById("temp").innerHTML;
-	}
-}
-
-function recorte_LiangBarsky(retas, P1, P2){
-	//array de extremos de segmentos de reta
-	//p1 e p2 sao pontos opostos da janela de recorte
-	
-	var xMin=(P1.x<P2.x?P1.x:P2.x);
-	var yMin=(P1.y<P2.y?P1.y:P2.y);
-	var xMax=(P1.x>P2.x?P1.x:P2.x);
-	var yMax=(P1.y>P2.y?P1.y:P2.y);
-	
-	//apagar as retas
-	temp=1;
-	for(var i=0;i<retas.length-1; i+=2)
-		reta_bresenham_desenha( {x:retas[i].x, y:retas[i].y}, {x:retas[i+1].x, y:retas[i+1].y});
-	
-	//recortar retas
-	for(var i=0;i<retas.length-1; i+=2){ // percorrer cada reta
-		
-		var xDelta = retas[i+1].x - retas[i].x;
-		var yDelta = retas[i+1].y - retas[i].y;
-		var p, q, u1=0,u2=1;
-		
-		for(var j=0; j<4;j++){ // percorrer cada parede
-			if(j<2){
-				p=Math.pow(-1,j+1)*xDelta; // p1 ou p2
-				q=retas[i].x-xMin;  //q1
-				if(j==1)
-					q=xMax-retas[i].x; // q2
-			}
-			else{
-				p=Math.pow(-1,j+1)*yDelta; // p3 ou p4
-				q=retas[i].y-yMin;  //q3
-				if(j==3)
-					q=yMax-retas[i].y; // q4
-			}
-			
-			if(p==0){
-				if(q<0){
-					
-					
-					/// eliminar o elemento do array
-					
-					
-					retas[i+1].x=-1;
-					retas[i+1].y=-1;
-					retas[i].x=-1;
-					retas[i].y=-1;
-				}
-				break;
-			}
-			
-			var u = q/p;
-			if(p<0)// o segmento vem do exterior
-				u1=Math.max(u1,u);
-			else //p>0     // o segmento vem do interior
-				u2=Math.min(u2,u);
-		}
-		
-		if(u1>=0 && u2>=0 && u1<=u2){
-			retas[i+1].x=retas[i].x+Math.round(u2*xDelta);
-			retas[i+1].y=retas[i].y+Math.round(u2*yDelta);
-			retas[i].x=retas[i].x+Math.round(u1*xDelta);
-			retas[i].y=retas[i].y+Math.round(u1*yDelta);
-		}
-		else{ // caso o segmento nao seja visivel
-			
-			/// eliminar o elemento do array
-			
-			retas[i+1].x=-1;
-			retas[i+1].y=-1;
-			retas[i].x=-1;
-			retas[i].y=-1;
-		}
-	}// fim do for i
-	
-	
-	
-	//imprimir retas recortadas
-	temp=-1;
-	for(var i=0;i<retas.length-1; i+=2)
-		reta_bresenham_desenha( {x:retas[i].x, y:retas[i].y}, {x:retas[i+1].x, y:retas[i+1].y});
-	temp = 0;
-	
-	//imprimePontosBre("LBN", retas);
-	
-}
-
-
-/*
-Recorte de retas pelo método de Cohen-Sutherland
-*/
-function menu_recorte_CohenSutherland(){
-	document.getElementById("description").innerHTML="Recorte: Método de Cohen-Sutherland"; 
-	//Events
-	estado = 140;
-}
-
-function recorte_CohenSutherland(){
-	
-}
-
-	
-function menu_recorte_Poligonos(){
-	document.getElementById("description").innerHTML="Recorte: Polígonos"; 
-	//Events
-	estado = 150;
-}
-
-function recorte_Poligonos(){
-	//definir poligonos
-	
-	//definir retangulo e recortá-los
-}
-
-
-
-//////////////////////////
-//  Funcoes auxiliares  //
-//////////////////////////
-
-
-// altera as configurações de desenho
-function confDesenho(){
-	
-	if(temp == 1){  //apagar
-		ctx.globalCompositeOperation = "xor";
-		ctx.fillStyle = "red";
-		return;
-	}
-	if(temp == 0){  //temporario
-		ctx.globalCompositeOperation = "xor";
-		ctx.fillStyle = "gray";
-		return;
-	}
-	
-	//desenho final
-	ctx.globalCompositeOperation = "source-over";  // por definicao
-	ctx.fillStyle = "red";
-}
-
-//pinta um determinado pixel
-function pintaPixel(_x, _y){
-	ctx.fillRect(_x, _y, 1, 1);
-}
-
-//devolve a distancia entre dois pontos
-function dist(A, B){
-	return Math.floor(Math.sqrt(Math.pow(A.x-B.x,2)+ Math.pow(A.y-B.y,2)));
-}
-
-//imprime todos os pontos armazenados em memoria
-function imprimePontos(){
-	imprimePontosBre("B", pontosBre);
-	imprimePtsCircBre();
-	imprimePtsET();
-}
-
-//imprime pontos das retas de bresenham
-function imprimePontosBre(letra, pontos){
-	
-	for(var i=0; i<pontos.length-1;i=i+2){
-		var dx = pontos[i+1].x - pontos[i].x;
-		var dy = pontos[i+1].y - pontos[i].y;
-		
-		//apaga os anteriores
-		ctx.fillStyle = "white";
-		ctx.fillText((letra + (i+1)), pontos[i].x + (dx>0?-15+(i>=9?-8:0):2), pontos[i].y + (dy>0?-2:2));
-		ctx.fillText((letra + (i+2)), pontos[i+1].x + (dx>0?2:-15+(i>=9?-8:0)) , pontos[i+1].y + (dy>0?2:-2));
-
-		//imprime o novo estado
-		ctx.fillStyle = "black";
-		ctx.fillText((letra + (i+1)), pontos[i].x + (dx>0?-15+(i>=9?-8:0):2), pontos[i].y + (dy>0?-2:2));
-		ctx.fillText((letra + (i+2)), pontos[i+1].x + (dx>0?2:-15+(i>=9?-8:0)) , pontos[i+1].y + (dy>0?2:-2));
-	}
-}
-
-//imprime os centros das circunferencias de bresenham
-function imprimePtsCircBre(){
-	for(var i=0; i<pontosCircBre.length;i++){
-		
-		//apaga os anteriores
-		ctx.fillStyle = "white";
-		ctx.fillText(("CB" + (i+1)), pontosCircBre[i].x + 2, pontosCircBre[i].y - 3);
-
-		//imprime o novo estado
-		ctx.fillStyle = "black";
-		ctx.fillText(("CB" + (i+1)), pontosCircBre[i].x + 2, pontosCircBre[i].y - 3);
-		
-		pintaPixel(pontosCircBre[i].x, pontosCircBre[i].y);
-	}
-}
-
-//imprime os centros das elipses em modo trigonometrico
-function imprimePtsET(){
-	for(var i=0; i<pontosEtrig.length;i++){
-		//apaga os anteriores
-		ctx.fillStyle = "white";
-		ctx.fillText(("ET" + (i+1)), pontosEtrig[i].x + 2, pontosEtrig[i].y - 3);
-
-		//imprime o novo estado
-		ctx.fillStyle = "black";
-		ctx.fillText(("ET" + (i+1)), pontosEtrig[i].x + 2, pontosEtrig[i].y - 3);
-		
-		pintaPixel(pontosEtrig[i].x, pontosEtrig[i].y);
-	}
-}
 
+    /* 
+       ------------------------
+       Método Germen 8 (raster)
+       ------------------------
+    */
+    function menu_germen8() {
+        x = document.getElementById("description");
+        x.innerHTML = "Germen 8 (raster)";
+        //Events
+        estado = 100;
+    }
+
+
+    function germen8(x, y) {
+        //Obtem a cor do pixel selecionado
+        var c = document.getElementById("acg_canvas");
+        var ctx = c.getContext("2d");
+
+        canvas_width = c.width;
+        canvas_height = c.height;
+        ctx.fillStyle = "red";
+        rec = 0;
+        germen8_doit(x, y);
+        //    x.innerHTML += "<br>R=" + p[0] + ", G=" + p[1] + ",B=" + p[2];
+    }
+
+
+
+    function germen8_doit(x, y) {
+        rec++;
+        if (rec > maxrec) //mudei maxrec
+            return;
+        var r = ctx.getImageData(x, y, 1, 1).data[0]; //red
+        var g = ctx.getImageData(x, y, 1, 1).data[1]; //green
+        var b = ctx.getImageData(x, y, 1, 1).data[2]; //blue
+
+        if (x < 0 || x >= canvas_width || y < 0 || y >= canvas_height)
+            return;
+        if (r === 0 && g === 0 && b === 0) { //if white
+            pintaPixel(x, y); //pinta
+            germen8_doit(x + 1, y);
+            germen8_doit(x - 1, y);
+            germen8_doit(x, y + 1);
+            germen8_doit(x, y - 1);
+            germen8_doit(x - 1, y - 1);
+            germen8_doit(x - 1, y + 1);
+            germen8_doit(x + 1, y - 1);
+            germen8_doit(x + 1, y + 1);
+        }
+    }
+
+
+
+    /* 
+       --------------------------------------
+       Desenho de um polígono (vectorial)
+       --------------------------------------
+    */
+    function menu_desenha_poligono() {
+        x = document.getElementById("description");
+        x.innerHTML = "Desenho de um polígono (vectorial)";
+
+        //Prepara pontos
+        ptspol = []; //Lista vazia
+
+        //Events
+        estado = 110;
+    }
+
+
+
+    /* 
+       --------------------------------------
+       Método Linha de Varrimento (vectorial)
+       --------------------------------------
+    */
+
+    function menu_varrimento() {
+        x = document.getElementById("description");
+        x.innerHTML = "Varrimento (vectorial)";
+
+        //Events
+        estado = 120;
+
+        //Temporário: para debug apenas
+        //ptspol = [ {x:100,y:100}, {x:150,y:100}, {x:100,y:150}, {x:100,y:100} ];
+        //desenha_poligono();
+    }
+
+
+    function varrimento() {
+        //Varre e regressa logo ao estado base.
+        estado = 0;
+
+        //Pixel selecionado potencialmente dentro de um ou mais polígonos.
+        px = canvas_x;
+        py = canvas_y;
+
+        //Verificar se o polígono foi selecionado:
+        //--> passar agora porque só há um polígono.
+
+        //Obtem ymin e ymax.
+        var ymin, ymax;
+
+        //Assume-se um polígono fechado
+        npts = ptspol.length;
+
+        ymin = ptspol[0].y;
+        ymax = ptspol[0].y;
+
+    }
+
+    ///////////////
+    //  Recorte  //
+    ///////////////
+
+    /*
+    Recorte de retas pelo método de Liang-Barsky
+    */
+    function menu_recorte_LiangBarsky() {
+        document.getElementById("description").innerHTML = "Recorte: Método de Liang-Barsky";
+
+        //Events
+        if (pontosBre.length > 1) { //existe pelo menos uma reta desenhada
+            document.getElementById("temp").innerHTML = "Selecione o primeiro ponto da janela de recorte<br>" + document.getElementById("temp").innerHTML;
+            segsReta = pontosBre;
+            estado = 135;
+        }
+        else {
+            estado = 130;
+            document.getElementById("temp").innerHTML = "Introduzir Segmentos de Reta<br><br>Selecione o primeiro ponto<br>" + document.getElementById("temp").innerHTML;
+        }
+    }
+
+    function recorte_LiangBarsky(retas, P1, P2) {
+        //array de extremos de segmentos de reta
+        //p1 e p2 sao pontos opostos da janela de recorte
+
+        var xMin = (P1.x < P2.x ? P1.x : P2.x);
+        var yMin = (P1.y < P2.y ? P1.y : P2.y);
+        var xMax = (P1.x > P2.x ? P1.x : P2.x);
+        var yMax = (P1.y > P2.y ? P1.y : P2.y);
+
+        //apagar as retas
+        temp = 1;
+        for (var i = 0; i < retas.length - 1; i += 2)
+            reta_bresenham_desenha({ x: retas[i].x, y: retas[i].y }, { x: retas[i + 1].x, y: retas[i + 1].y });
+
+        //recortar retas
+        for (var i = 0; i < retas.length - 1; i += 2) { // percorrer cada reta
 
+            var xDelta = retas[i + 1].x - retas[i].x;
+            var yDelta = retas[i + 1].y - retas[i].y;
+            var p, q, u1 = 0, u2 = 1;
+
+            for (var j = 0; j < 4; j++) { // percorrer cada parede
+                if (j < 2) {
+                    p = Math.pow(-1, j + 1) * xDelta; // p1 ou p2
+                    q = retas[i].x - xMin;  //q1
+                    if (j == 1)
+                        q = xMax - retas[i].x; // q2
+                }
+                else {
+                    p = Math.pow(-1, j + 1) * yDelta; // p3 ou p4
+                    q = retas[i].y - yMin;  //q3
+                    if (j == 3)
+                        q = yMax - retas[i].y; // q4
+                }
+
+                if (p == 0) {
+                    if (q < 0) {
+
+
+                        /// eliminar o elemento do array
+
+
+                        retas[i + 1].x = -1;
+                        retas[i + 1].y = -1;
+                        retas[i].x = -1;
+                        retas[i].y = -1;
+                    }
+                    break;
+                }
+
+                var u = q / p;
+                if (p < 0)// o segmento vem do exterior
+                    u1 = Math.max(u1, u);
+                else //p>0     // o segmento vem do interior
+                    u2 = Math.min(u2, u);
+            }
+
+            if (u1 >= 0 && u2 >= 0 && u1 <= u2) {
+                retas[i + 1].x = retas[i].x + Math.round(u2 * xDelta);
+                retas[i + 1].y = retas[i].y + Math.round(u2 * yDelta);
+                retas[i].x = retas[i].x + Math.round(u1 * xDelta);
+                retas[i].y = retas[i].y + Math.round(u1 * yDelta);
+            }
+            else { // caso o segmento nao seja visivel
+
+                /// eliminar o elemento do array
+
+                retas[i + 1].x = -1;
+                retas[i + 1].y = -1;
+                retas[i].x = -1;
+                retas[i].y = -1;
+            }
+        }// fim do for i
+
+
+
+        //imprimir retas recortadas
+        temp = -1;
+        for (var i = 0; i < retas.length - 1; i += 2)
+            reta_bresenham_desenha({ x: retas[i].x, y: retas[i].y }, { x: retas[i + 1].x, y: retas[i + 1].y });
+        temp = 0;
+
+        //imprimePontosBre("LBN", retas);
+
+    }
+
+
+    /*
+    Recorte de retas pelo método de Cohen-Sutherland
+    */
+    function menu_recorte_CohenSutherland() {
+        document.getElementById("description").innerHTML = "Recorte: Método de Cohen-Sutherland";
+        //Events
+        estado = 140;
+    }
+
+    function recorte_CohenSutherland() {
+
+    }
+
+
+    function menu_recorte_Poligonos() {
+        document.getElementById("description").innerHTML = "Recorte: Polígonos";
+        //Events
+        estado = 150;
+    }
+
+    function recorte_Poligonos() {
+        //definir poligonos
+
+        //definir retangulo e recortá-los
+    }
+
+
+
+    //////////////////////////
+    //  Funcoes auxiliares  //
+    //////////////////////////
+
+
+    // altera as configurações de desenho
+    function confDesenho() {
+
+        if (temp == 1) {  //apagar
+            ctx.globalCompositeOperation = "xor";
+            ctx.fillStyle = "red";
+            return;
+        }
+        if (temp == 0) {  //temporario
+            ctx.globalCompositeOperation = "xor";
+            ctx.fillStyle = "gray";
+            return;
+        }
+
+        //desenho final
+        ctx.globalCompositeOperation = "source-over";  // por definicao
+        ctx.fillStyle = "red";
+    }
+
+    //pinta um determinado pixel
+    function pintaPixel(_x, _y) {
+        ctx.fillRect(_x, _y, 1, 1);
+    }
+
+    //devolve a distancia entre dois pontos
+    function dist(A, B) {
+        return Math.floor(Math.sqrt(Math.pow(A.x - B.x, 2) + Math.pow(A.y - B.y, 2)));
+    }
+
+    //imprime todos os pontos armazenados em memoria
+    function imprimePontos() {
+        imprimePontosDDA("DDA", pontosDDA);
+        imprimePontosBre("B", pontosBre);
+        imprimePtsCircBre();
+        imprimePtsET();
+    }
+
+    //imprime pontos das retas DDA
+    function imprimePontosDDA(letra, pontos) {
+
+        for (var i = 0; i < pontos.length - 1; i = i + 2) {
+            var dx = pontos[i + 1].x - pontos[i].x;
+            var dy = pontos[i + 1].y - pontos[i].y;
+
+            //apaga os anteriores
+            ctx.fillStyle = "white";
+            ctx.fillText((letra + (i + 1)), pontos[i].x + (dx > 0 ? -15 + (i >= 9 ? -8 : 0) : 2), pontos[i].y + (dy > 0 ? -2 : 2));
+            ctx.fillText((letra + (i + 2)), pontos[i + 1].x + (dx > 0 ? 2 : -15 + (i >= 9 ? -8 : 0)), pontos[i + 1].y + (dy > 0 ? 2 : -2));
+
+            //imprime o novo estado
+            ctx.fillStyle = "black";
+            ctx.fillText((letra + (i + 1)), pontos[i].x + (dx > 0 ? -15 + (i >= 9 ? -8 : 0) : 2), pontos[i].y + (dy > 0 ? -2 : 2));
+            ctx.fillText((letra + (i + 2)), pontos[i + 1].x + (dx > 0 ? 2 : -15 + (i >= 9 ? -8 : 0)), pontos[i + 1].y + (dy > 0 ? 2 : -2));
+        }
+    }
+
+    //imprime pontos das retas de bresenham
+    function imprimePontosBre(letra, pontos) {
+
+        for (var i = 0; i < pontos.length - 1; i = i + 2) {
+            var dx = pontos[i + 1].x - pontos[i].x;
+            var dy = pontos[i + 1].y - pontos[i].y;
+
+            //apaga os anteriores
+            ctx.fillStyle = "white";
+            ctx.fillText((letra + (i + 1)), pontos[i].x + (dx > 0 ? -15 + (i >= 9 ? -8 : 0) : 2), pontos[i].y + (dy > 0 ? -2 : 2));
+            ctx.fillText((letra + (i + 2)), pontos[i + 1].x + (dx > 0 ? 2 : -15 + (i >= 9 ? -8 : 0)), pontos[i + 1].y + (dy > 0 ? 2 : -2));
+
+            //imprime o novo estado
+            ctx.fillStyle = "black";
+            ctx.fillText((letra + (i + 1)), pontos[i].x + (dx > 0 ? -15 + (i >= 9 ? -8 : 0) : 2), pontos[i].y + (dy > 0 ? -2 : 2));
+            ctx.fillText((letra + (i + 2)), pontos[i + 1].x + (dx > 0 ? 2 : -15 + (i >= 9 ? -8 : 0)), pontos[i + 1].y + (dy > 0 ? 2 : -2));
+        }
+    }
+
+    //imprime os centros das circunferencias de bresenham
+    function imprimePtsCircBre() {
+        for (var i = 0; i < pontosCircBre.length; i++) {
+
+            //apaga os anteriores
+            ctx.fillStyle = "white";
+            ctx.fillText(("CB" + (i + 1)), pontosCircBre[i].x + 2, pontosCircBre[i].y - 3);
+
+            //imprime o novo estado
+            ctx.fillStyle = "black";
+            ctx.fillText(("CB" + (i + 1)), pontosCircBre[i].x + 2, pontosCircBre[i].y - 3);
+
+            pintaPixel(pontosCircBre[i].x, pontosCircBre[i].y);
+        }
+    }
+
+    //imprime os centros das elipses em modo trigonometrico
+    function imprimePtsET() {
+        for (var i = 0; i < pontosEtrig.length; i++) {
+            //apaga os anteriores
+            ctx.fillStyle = "white";
+            ctx.fillText(("ET" + (i + 1)), pontosEtrig[i].x + 2, pontosEtrig[i].y - 3);
+
+            //imprime o novo estado
+            ctx.fillStyle = "black";
+            ctx.fillText(("ET" + (i + 1)), pontosEtrig[i].x + 2, pontosEtrig[i].y - 3);
+
+            pintaPixel(pontosEtrig[i].x, pontosEtrig[i].y);
+        }
+    }
