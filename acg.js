@@ -91,7 +91,7 @@ var px,py;
 var canvas_width, canvas_height;
 
 //Desenho de um polígono vectorial
-var ptspol; //pontos de um polígono.
+var poligono = []; //pontos de um polígono.
 var npts; //num de pontos.
 
 //Recorte de retas
@@ -124,7 +124,7 @@ function mouseOut(event){
 function mouseMove(event) {
 	
 	canvas_x = event.layerX-4;
-   canvas_y = event.layerY-4;
+    canvas_y = event.layerY-4;
 	
    switch (estado) {
 
@@ -589,9 +589,8 @@ function doMouseDown(event) {
         var g = ctx.getImageData(px, py, 1, 1).data[1]; //green
         var b = ctx.getImageData(px, py, 1, 1).data[2]; //blue
         x.innerHTML += "<br>R=" + r + ", G=" + g + ", B=" + b; //vermelho aparece correto (255,0,0) mas o branco (0,0,0) não devia aparecer (255,255,255)?
-        //germen
+        //
         germen4(px,py);
-
         estado = 0;
         break;
 
@@ -611,27 +610,34 @@ function doMouseDown(event) {
         var g = ctx.getImageData(px, py, 1, 1).data[1]; //green
         var b = ctx.getImageData(px, py, 1, 1).data[2]; //blue
         x.innerHTML += "<br>R=" + r + ", G=" + g + ", B=" + b; //vermelho aparece correto (255,0,0) mas o branco (0,0,0) não devia aparecer (255,255,255)?
-        //germen
         germen8(px,py);
-
         estado = 0;
         break;
 
     //////////////////////////////////////////////
     //Desenho de um polígono "vectorial"
     //////////////////////////////////////////////
-    case 110:    
-        pol_primeiroponto();
+    case 110:
+        //Guarda o click 
+        px1 = canvas_x;
+        py1 = canvas_y;
+        pol_primeiroponto(px1, py1);
         break;
 
-    case 111:    
-        pol_recebe_ponto();
+    case 111:   
+        //Guarda o click 
+        px = canvas_x;
+        py = canvas_y;
+        pol_recebe_ponto(px, py, px1,py1);
         break;
 
     //////////////////////////////////////////////
-    //Preenchimento 8
+    //Preenchimento Polígono Scanline
     //////////////////////////////////////////////
     case 120:
+        for (var i = 0; i < poligono.length; i++) {
+            document.getElementById("description").innerHTML += "<br>Ponto P" + (i) + " ( " + poligono[i].x + "; " + poligono[i].y + ")";
+        }
         varrimento();
         break;
     
@@ -826,9 +832,9 @@ function menu_reta_dda()
 function reta_dda_desenha(x1, y1, x2, y2) {
     var x, y;
     confDesenho();
-        if (Math.abs(y2 - y1) <= Math.abs(x2 - x1))
+        if (Math.abs(y2 - y1) <= Math.abs(x2 - x1)) // m < 1
     {
-        if (x1 > x2)
+            if (x1 > x2) //se reta for desenhada da direita para a esquerda trocar  (x1,y1)->(x2,y2) e (x2,y2)->(x1,y1)
         {
             var t = x1;
             x1 = x2;
@@ -839,13 +845,13 @@ function reta_dda_desenha(x1, y1, x2, y2) {
             y2 = u;
         }
         var m = (y2 - y1) / (x2 - x1);
-        y = y1; // initial value
+        y = y1;
         for (x = x1; x <= x2; x++, y += m)
             pintaPixel(x, Math.round(y));
     }
     else // m > 1
     {
-        if (y1 > y2)
+            if (y1 > y2) ////se reta for desenhada de cima para baixo trocar (x1,y1)->(x2,y2) e (x2,y2)->(x1,y1)
         {
             var t = x1;
             x1 = x2;
@@ -856,7 +862,7 @@ function reta_dda_desenha(x1, y1, x2, y2) {
             y2 = u;
         }
         var m = (y2 - y1) / (x2 - x1);
-        x = x1; // initial value
+        x = x1;
         for (y = y1; y <= y2; y++, x += 1/m)
             pintaPixel(Math.round(x), y);
     }
@@ -1114,7 +1120,7 @@ function reta_dda_desenha(x1, y1, x2, y2) {
 
     function germen4_doit(x, y) {
         rec++;
-        if (rec > maxrec) //mudei maxrec
+        if (rec > maxrec) //maxrec = 100000
             return;
         var r = ctx.getImageData(x, y, 1, 1).data[0]; //red
         var g = ctx.getImageData(x, y, 1, 1).data[1]; //green
@@ -1123,7 +1129,7 @@ function reta_dda_desenha(x1, y1, x2, y2) {
         if (x < 0 || x >= canvas_width || y < 0 || y >= canvas_height)
             return;
         if (r===0 && g===0 && b===0) { //if white
-            pintaPixel(x, y); //pinta
+            pintaPixel(x, y);
             germen4_doit(x + 1, y);
             germen4_doit(x - 1, y);
             germen4_doit(x, y + 1);
@@ -1147,10 +1153,8 @@ function reta_dda_desenha(x1, y1, x2, y2) {
 
 
     function germen8(x, y) {
-        //Obtem a cor do pixel selecionado
         var c = document.getElementById("acg_canvas");
         var ctx = c.getContext("2d");
-
         canvas_width = c.width;
         canvas_height = c.height;
         ctx.fillStyle = "red";
@@ -1163,7 +1167,7 @@ function reta_dda_desenha(x1, y1, x2, y2) {
 
     function germen8_doit(x, y) {
         rec++;
-        if (rec > maxrec) //mudei maxrec
+        if (rec > maxrec)
             return;
         var r = ctx.getImageData(x, y, 1, 1).data[0]; //red
         var g = ctx.getImageData(x, y, 1, 1).data[1]; //green
@@ -1172,7 +1176,7 @@ function reta_dda_desenha(x1, y1, x2, y2) {
         if (x < 0 || x >= canvas_width || y < 0 || y >= canvas_height)
             return;
         if (r === 0 && g === 0 && b === 0) { //if white
-            pintaPixel(x, y); //pinta
+            pintaPixel(x, y);
             germen8_doit(x + 1, y);
             germen8_doit(x - 1, y);
             germen8_doit(x, y + 1);
@@ -1194,16 +1198,41 @@ function reta_dda_desenha(x1, y1, x2, y2) {
     function menu_desenha_poligono() {
         x = document.getElementById("description");
         x.innerHTML = "Desenho de um polígono (vectorial)";
-
-        //Prepara pontos
-        ptspol = []; //Lista vazia
-
+                
         //Events
         estado = 110;
     }
-
-
-
+    function pol_primeiroponto(px1, py1) {
+        var c = document.getElementById("acg_canvas");
+        var ctx = c.getContext("2d");
+        ctx.strokeStyle = "red";
+        poligono.push({ x: px1, y: py1 });
+        document.getElementById("description").innerHTML += "<br>Ponto P" + (poligono.length-1) + " ( " + px1 + "; " + py1 + ")";
+        ctx.beginPath();
+        ctx.moveTo(px1, py1);
+        estado = 111;
+    }
+    function pol_recebe_ponto(px, py, px1, py1) {
+        var c = document.getElementById("acg_canvas");
+        var ctx = c.getContext("2d");
+        ctx.strokeStyle = "red";
+        var desenha_aresta = true;
+        if (Math.abs(px - px1) < 5 && Math.abs(py - py1) < 5) //se tiver a menos 5px de distancia do primeiro ponto, fecha o poligono
+        {
+            px = px1;
+            py = py1;
+            desenha_aresta = false;
+        }
+        poligono.push({x: px, y: py });
+        document.getElementById("description").innerHTML += "<br>Ponto P" + (poligono.length-1) + " ( " + px + "; " + py + ")";
+        ctx.lineTo(px, py);
+        ctx.stroke();
+        
+        if (!desenha_aresta) {
+            estado = 0; //pára de desenhar arestas    
+        }
+    }
+    
     /* 
        --------------------------------------
        Método Linha de Varrimento (vectorial)
@@ -1212,38 +1241,100 @@ function reta_dda_desenha(x1, y1, x2, y2) {
 
     function menu_varrimento() {
         x = document.getElementById("description");
-        x.innerHTML = "Varrimento (vectorial)";
+        x.innerHTML = "Scanline";
 
         //Events
         estado = 120;
-
-        //Temporário: para debug apenas
-        //ptspol = [ {x:100,y:100}, {x:150,y:100}, {x:100,y:150}, {x:100,y:100} ];
-        //desenha_poligono();
     }
 
 
     function varrimento() {
-        //Varre e regressa logo ao estado base.
+        var c = document.getElementById('acg_canvas');
+        var ctx = c.getContext('2d');
+        
+        //cria array com
+        var arestas = [];
+        for (var i = 1; i < poligono.length; i++) {
+            arestas.push(new aresta(poligono[i - 1], poligono[i]));
+        }
+        
+        //encontrar minX e maxY
+        var minY = poligono[0].y;
+        var maxY = poligono[0].y;
+        for (var i = 0; i < poligono.length; i++) {
+            var temp = poligono[i].y;
+            if (temp < minY)
+                minY = temp;
+            else if (temp > maxY)
+                maxY = temp;
+        }
+
+        //pintar linha em cada y (menor que maxY e maior que minY)
+        ctx.strokeStyle = "red";
+        ctx.beginPath();
+        for (var y = minY; y < maxY; y++) {
+            var meetPoint = getMeetPoint(y);
+            for (var i = 1; i < meetPoint.length; i += 2) { // começa em 1 pois em 0 NAO PINTA... de 2 em 2 inteseçoes PINTA ate proxima interseção
+                ctx.moveTo(meetPoint[i - 1], y);
+                ctx.lineTo(meetPoint[i], y);
+            }
+        }
+        ctx.stroke();
+
+        //criar array com as coordenadas x das interseçoes das arestas em y
+        function getMeetPoint(y) {
+            var meet = [];
+            for (var i = 0; i < arestas.length; i++) {
+                var a = arestas[i];
+                if (a.isValidY(y)) {
+                    meet.push(a.getX(y));
+                }
+            }
+
+            //ordenar interseçoes
+            for (var i = 0; i < meet.length; i++)
+                for (var j = i; j < meet.length; j++) {
+                    if (meet[i] > meet[j]) {
+                        var temp = meet[i];
+                        meet[i] = meet[j];
+                        meet[j] = temp;
+                    }
+                }
+
+            return meet;
+
+        }
+
+        //aresta(dadas coordenadas dos pontos inicial e final)
+        function aresta(start, end) {
+            this.x0 = start.x;
+            this.x1 = end.x;
+            this.y0 = start.y;
+            this.y1 = end.y;
+            this.m = (this.y1 - this.y0) / (this.x1 - this.x0);
+
+            this.getX = function (y) { //dar coordenada x dessa aresta em y
+                if (!this.isValidY(y))
+                    throw new RangeError();
+
+                return 1 / this.m * (y - this.y0) + this.x0;
+            }
+
+            this.isValidY = function (y) { //entre y0 e y1 ou entre y1 e y0 (caso aresta tenha sido desenhada da direita para a esquerda)
+                if (y >= this.y0 && y < this.y1) {
+                    return true;
+                }
+                if (y >= this.y1 && y < this.y0) {
+                    return true;
+                }
+
+                return false;
+            }
+        }
         estado = 0;
-
-        //Pixel selecionado potencialmente dentro de um ou mais polígonos.
-        px = canvas_x;
-        py = canvas_y;
-
-        //Verificar se o polígono foi selecionado:
-        //--> passar agora porque só há um polígono.
-
-        //Obtem ymin e ymax.
-        var ymin, ymax;
-
-        //Assume-se um polígono fechado
-        npts = ptspol.length;
-
-        ymin = ptspol[0].y;
-        ymax = ptspol[0].y;
-
     }
+
+    
 
     ///////////////
     //  Recorte  //
@@ -1492,3 +1583,17 @@ function reta_dda_desenha(x1, y1, x2, y2) {
             pintaPixel(pontosEtrig[i].x, pontosEtrig[i].y);
         }
     }
+
+/*
+beginPath(): This method resets the current path.
+
+moveTo(x, y): This method creates a new subpath with the given point.
+
+closePath(): This method marks the current subpath as closed, and starts a new subpath with a point the same as the start and end of the newly closed subpath.
+
+fill(): This method fills the subpaths with the current fill style.
+
+stroke(): This method strokes the subpaths with the current stroke style.
+	
+lineTo(x, y): This method adds the given point to the current subpath, connected to the previous one by a straight line.
+*/
